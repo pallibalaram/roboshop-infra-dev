@@ -1,10 +1,10 @@
-pipeline {
+pipeline{
     agent {
         node {
             label 'AGENT-1'
         }
     }
-   options {
+    options {
         timeout(time: 1, unit: 'HOURS') 
         disableConcurrentBuilds()
         ansiColor('xterm')
@@ -13,7 +13,7 @@ pipeline {
         GREETING = "Hello Jenkins"
     }
     
-    stages {
+    stages{
         stage("Init") {
             steps {
                 sh """
@@ -30,7 +30,7 @@ pipeline {
                 """   
             }
         }
-        stage('Deploy') {
+        stage('Deploy'){
             input {
                 message "Should we continue?"
                 ok "Yes, we should."
@@ -55,4 +55,5 @@ pipeline {
             echo "pipeline is failed"
         }    
     }
- }
+
+} 
