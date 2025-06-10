@@ -1,4 +1,4 @@
-resource "aws_acm_certificate" "acm" {
+resource "aws_acm_certificate" "pavandev" {
   domain_name       = "*.pavandev.online"
   validation_method = "DNS"
 
@@ -26,7 +26,7 @@ resource "aws_route53_record" "pavandev" {
   records         = [each.value.record]
   ttl             = 1
   type            = each.value.type
-  zone_id         = aws_route53_zone.pavandev.zone_id
+  zone_id         = data.aws_route53_zone.pavandev.zone_id
 }
 
 resource "aws_acm_certificate_validation" "pavandev" {

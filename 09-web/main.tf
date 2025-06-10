@@ -1,27 +1,29 @@
-resource "aws_lb_target_group "web" {
-  name     = "${local.name}-"${var.tags.component}"
+resource "aws_lb_target_group" "web" {
+  name     = "${local.name}-${var.tags.Component}"
   port     = 80
   protocol = "HTTP"
   vpc_id   = data.aws_ssm_parameter.vpc_id.value
+  deregistration_delay = 60
   health_check {
       healthy_threshold   = 2
-      interval            = 5
+      interval            = 10
       unhealthy_threshold = 3
-      timeout             = 10
-      path                = "/path"
+      timeout             = 5
+      path                = "/health"
       port                = 80
       matcher = "200-299"
   }
 }
 
 module "web" {
-  source  = "terraform-aws-modules/ec2-instance/aws"
+  source                 = "terraform-aws-modules/ec2-instance/aws"
   ami = data.aws_ami.centos8.id
-  name = "${local.name}-"${var.tags.component}-ami"
+  name                   = "${local.name}-${var.tags.Component}-ami"
   instance_type          = "t2.micro"
-  vpc_security_group_ids = ["data.aws_ssm_parameter.web_sg_id.value"]
-  subnet_id              = element(split(",", data.aws_ssm_parameter.private_subnet_ids),0)
-  tags = merge (
+  vpc_security_group_ids = [data.aws_ssm_parameter.web_sg_id.value]
+  subnet_id              = element(split(",", data.aws_ssm_parameter.private_subnet_ids.value), 0)
+  iam_instance_profile = "ShellScript"
+  tags = merge(
     var.common_tags,
     var.tags
   )
@@ -41,8 +43,9 @@ resource "null_resource" "web" {
     user = "centos"
     password = "DevOps321"
   }
+
   provisioner "file" {
-    source = "/bootstrap.sh"
+    source      = "bootstrap.sh"
     destination = "/tmp/bootstrap.sh"
   }
 
@@ -56,13 +59,13 @@ resource "null_resource" "web" {
 }
 
 resource "aws_ec2_instance_state" "web" {
-  instance_id = aws_instance.web.id
+  instance_id = module.web.id
   state       = "stopped"
   depends_on = [ null_resource.web ]
 }
 
 resource "aws_ami_from_instance" "web" {
-  name               = "${local.name}-${var.tags.component}-${local.current_time}"
+  name               = "${local.name}-${var.tags.Component}-${local.current_time}"
   source_instance_id = module.web.id
   depends_on = [ aws_ec2_instance_state.web ]
 }
@@ -72,31 +75,37 @@ resource "null_resource" "web_delete" {
   triggers = {
     instance_id = module.web.id
   }
-  
+
   provisioner "local-exec" {
+    # Bootstrap script called with private_ip of each node in the cluster
     command = "aws ec2 terminate-instances --instance-ids ${module.web.id}"
   }
-  depends_on = [aws_ami_fom_instance.web]
+
+  depends_on = [ aws_ami_from_instance.web]
 }
 
 resource "aws_launch_template" "web" {
-  name = "${local.name}-${var.tags.component}"
+  name = "${local.name}-${var.tags.Component}"
+
   image_id = aws_ami_from_instance.web.id
   instance_initiated_shutdown_behavior = "terminate"
   instance_type = "t2.micro"
   update_default_version = true
-  vpc_security_group_ids = ["data.aws_ssm_parameter.web_sg_id.value"]
+
+  vpc_security_group_ids = [data.aws_ssm_parameter.web_sg_id.value]
+
   tag_specifications {
     resource_type = "instance"
 
     tags = {
-      Name = "${local.name}-${var.tags.component}"
+      Name = "${local.name}-${var.tags.Component}"
     }
   }
+
 }
 
 resource "aws_autoscaling_group" "web" {
-  name                      = "${local.name}-${var.tags.component}"
+  name                      = "${local.name}-${var.tags.Component}"
   max_size                  = 10
   min_size                  = 1
   health_check_grace_period = 60
@@ -107,28 +116,30 @@ resource "aws_autoscaling_group" "web" {
   
   launch_template {
     id      = aws_launch_template.web.id
-    version = "aws_launch_template.web.latest_version"
+    version = aws_launch_template.web.latest_version
   }
-    instance_refresh {
-      strategy = "Rolling"
-      preferences {
-        min_healthy_percentage = 50
-      }
-      triggers = ["launch_template"]
+
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 50
+    }
+    triggers = ["launch_template"]
   }
 
   tag {
-    key                 = "name"
-    value               = "${local.name}-app-${var.tags.component}"
+    key                 = "Name"
+    value               = "${local.name}-${var.tags.Component}"
     propagate_at_launch = true
   }
 
   timeouts {
     delete = "15m"
   }
+}
 
-  resource "aws_lb_listener_rule" "web" {
-  listener_arn = data.aws_ssm_parameter.web_alb_listener_arn
+resource "aws_lb_listener_rule" "web" {
+  listener_arn = data.aws_ssm_parameter.web_alb_listener_arn.value
   priority     = 10
 
   action {
@@ -136,22 +147,24 @@ resource "aws_autoscaling_group" "web" {
     target_group_arn = aws_lb_target_group.web.arn
   }
 
-  
+
   condition {
-    path_pattern {
-      values = ["${var.tags.component}.app-${var.environment}.${var.zone_name}"]
+    host_header {
+      values = ["${var.tags.Component}-${var.environment}.${var.zone_name}"]
     }
   }
 }
 
 resource "aws_autoscaling_policy" "web" {
-  autoscaling_group_name = "aws_autoscaling_group.web.name"
-  name                   = "${local.name}-${var.tags.component}"
+  autoscaling_group_name = aws_autoscaling_group.web.name
+  name                   = "${local.name}-${var.tags.Component}"
   policy_type            = "TargetTrackingScaling"
+
   target_tracking_configuration {
-    predefined_load_metric_specification {
-        predefined_metric_type = "ASGTotalCPUUtilization"
-        target_value = 5.0
-      }
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
     }
+
+    target_value = 5.0
   }
+}

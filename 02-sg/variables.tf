@@ -24,7 +24,7 @@ variable "mongodb_sg_ingress_rules" {
             cidr_blocks      = ["0.0.0.0/0"],    
         },
         {
-             description      = "Allow port 443"
+            description      = "Allow port 443"
             from_port        = 443 # 0 means all ports
             to_port          = 443
             protocol         = "tcp"

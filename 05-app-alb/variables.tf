@@ -1,6 +1,6 @@
 variable "common_tags" {
     default = {
-        Project_name = "roboshop"
+        Project = "roboshop"
         Environment = "dev"
         Terraform = "true"
     }
@@ -8,7 +8,7 @@ variable "common_tags" {
 
 variable "tags" {
     default = {
-        component = "app_alb"
+        component = "app-alb"
     }
 }
 

@@ -1,16 +1,16 @@
 module "vpn"{
-  source = "../terraform-aws-security-group"
-  name        = var.project_name
+  source = "../../terraform-aws-security-group"
+  project_name        = var.project_name
   environment = var.environment
   sg_name = "vpn"
   sg_description = "SG for VPN"
-  vpc_id      = data.aws_ssm_parameter.vpc_id.value
+  vpc_id      = data.aws_vpc.default.id
   #sg_ingress_rules = var.mongodb_sg_ingress_rules
 }
 
 module "mongodb"{
-  source = "../terraform-aws-security-group"
-  name        = var.project_name
+  source = "../../terraform-aws-security-group"
+  project_name        = var.project_name
   environment = var.environment
   sg_name = "mongodb"
   sg_description = "SG for mongoDB"
@@ -19,7 +19,7 @@ module "mongodb"{
 }
 
 module "redis" {
-  source = "../terraform-aws-security-group"
+  source = "../../terraform-aws-security-group"
   project_name = var.project_name
   environment = var.environment
   sg_name = "redis"
@@ -29,7 +29,7 @@ module "redis" {
 }
 
 module "mysql" {
-  source = "../terraform-aws-security-group"
+  source = "../../terraform-aws-security-group"
   project_name = var.project_name
   environment = var.environment
   sg_name = "mysql"
@@ -39,7 +39,7 @@ module "mysql" {
 }
 
 module "rabbitmq" {
-  source = "../terraform-aws-security-group"
+  source = "../../terraform-aws-security-group"
   project_name = var.project_name
   environment = var.environment
   sg_name = "rabbitmq"
@@ -49,8 +49,8 @@ module "rabbitmq" {
 }
 
 module "catalogue" {
-  source = "../terraform-aws-security-group"
-  name        = var.project_name
+  source = "../../terraform-aws-security-group"
+  project_name        = var.project_name
   environment = var.environment
   sg_name = "catalogue"
   sg_description = "SG for catalogue"
@@ -59,8 +59,8 @@ module "catalogue" {
 }
 
 module "user" {
-  source = "../terraform-aws-security-group"
-  name        = var.project_name
+  source = "../../terraform-aws-security-group"
+  project_name        = var.project_name
   environment = var.environment
   sg_name = "user"
   sg_description = "SG for user"
@@ -69,7 +69,7 @@ module "user" {
 }
 
 module "cart" {
-  source = "../terraform-aws-security-group"
+  source = "../../terraform-aws-security-group"
   project_name = var.project_name
   environment = var.environment
   sg_name = "cart"
@@ -79,7 +79,7 @@ module "cart" {
 }
 
 module "shipping" {
-  source = "../terraform-aws-security-group"
+  source = "../../terraform-aws-security-group"
   project_name = var.project_name
   environment = var.environment
   sg_name = "shipping"
@@ -89,7 +89,7 @@ module "shipping" {
 }
 
 module "payment" {
-  source = "../terraform-aws-security-group"
+  source = "../../terraform-aws-security-group"
   project_name = var.project_name
   environment = var.environment
   sg_name = "payment"
@@ -99,7 +99,7 @@ module "payment" {
 }
 
 module "web" {
-  source = "../terraform-aws-security-group"
+  source = "../../terraform-aws-security-group"
   project_name = var.project_name
   environment = var.environment
   sg_name = "web"
@@ -109,7 +109,7 @@ module "web" {
 }
 
 module "app_alb" {
-  source = "../terraform-aws-security-group"
+  source = "../../terraform-aws-security-group"
   project_name = var.project_name
   environment = var.environment
   sg_name = "app_alb"
@@ -119,7 +119,7 @@ module "app_alb" {
 }
 
 module "web_alb" {
-  source = "../terraform-aws-security-group"
+  source = "../../terraform-aws-security-group"
   project_name = var.project_name
   environment = var.environment
   sg_name = "web_alb"
@@ -129,7 +129,16 @@ module "web_alb" {
 }
 
 resource "aws_security_group_rule" "app_alb_vpn" {
-  source security_group_id = module.vpn.sg_id
+  source_security_group_id = module.vpn.sg_id
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  security_group_id = module.app_alb.sg_id
+}
+
+resource "aws_security_group_rule" "app_alb_web" {
+  source_security_group_id = module.web.sg_id
   type              = "ingress"
   from_port         = 80
   to_port           = 80
@@ -155,7 +164,7 @@ resource "aws_security_group_rule" "vpn_home" {
 }
 
 resource "aws_security_group_rule" "mongodb_vpn" {
-  source security_group_id = module.vpn.sg_id
+  source_security_group_id = module.vpn.sg_id
   type              = "ingress"
   from_port         = 22
   to_port           = 22
@@ -164,25 +173,25 @@ resource "aws_security_group_rule" "mongodb_vpn" {
 }
 
 resource "aws_security_group_rule" "mongodb_catalogue" {
-  source security_group_id = module.catalogue.sg_id
+  source_security_group_id = module.catalogue.sg_id
   type              = "ingress"
-  from_port         = 27027
+  from_port         = 27017
   to_port           = 27017
   protocol          = "tcp" 
   security_group_id = module.mongodb.sg_id
 }
 
 resource "aws_security_group_rule" "mongodb_user" {
-  source security_group_id = module.catalogue.sg_id
+  source_security_group_id = module.user.sg_id
   type              = "ingress"
-  from_port         = 27027
+  from_port         = 27017
   to_port           = 27017
   protocol          = "tcp" 
   security_group_id = module.mongodb.sg_id
 }
 
 resource "aws_security_group_rule" "redis_vpn" {
-  source security_group_id = module.vpn.sg_id
+  source_security_group_id = module.vpn.sg_id
   type              = "ingress"
   from_port         = 22
   to_port           = 22
@@ -191,7 +200,7 @@ resource "aws_security_group_rule" "redis_vpn" {
 }
 
 resource "aws_security_group_rule" "redis_cart" {
-  source security_group_id = module.cart.sg_id
+  source_security_group_id = module.cart.sg_id
   type              = "ingress"
   from_port         = 6379
   to_port           = 6379
@@ -200,7 +209,7 @@ resource "aws_security_group_rule" "redis_cart" {
 }
 
 resource "aws_security_group_rule" "redis_user" {
-  source security_group_id = module.user.sg_id
+  source_security_group_id = module.user.sg_id
   type              = "ingress"
   from_port         = 6379
   to_port           = 6379
@@ -209,7 +218,7 @@ resource "aws_security_group_rule" "redis_user" {
 }
 
 resource "aws_security_group_rule" "mysql_vpn" {
-  source security_group_id = module.vpn.sg_id
+  source_security_group_id = module.vpn.sg_id
   type              = "ingress"
   from_port         = 22
   to_port           = 22
@@ -218,7 +227,7 @@ resource "aws_security_group_rule" "mysql_vpn" {
 }
 
 resource "aws_security_group_rule" "mysql_shipping" {
-  source security_group_id = module.shipping.sg_id
+  source_security_group_id = module.shipping.sg_id
   type              = "ingress"
   from_port         = 3306
   to_port           = 3306
@@ -227,7 +236,7 @@ resource "aws_security_group_rule" "mysql_shipping" {
 }
 
 resource "aws_security_group_rule" "rabbitmq_vpn" {
-  source security_group_id = module.vpn.sg_id
+  source_security_group_id = module.vpn.sg_id
   type              = "ingress"
   from_port         = 22
   to_port           = 22
@@ -236,7 +245,7 @@ resource "aws_security_group_rule" "rabbitmq_vpn" {
 }
 
 resource "aws_security_group_rule" "rabbitmq_payment" {
-  source security_group_id = module.shipping.sg_id
+  source_security_group_id = module.shipping.sg_id
   type              = "ingress"
   from_port         = 5672
   to_port           = 5672
@@ -245,7 +254,7 @@ resource "aws_security_group_rule" "rabbitmq_payment" {
 }
 
 resource "aws_security_group_rule" "catalogue_vpn" {
-  source security_group_id = module.vpn.sg_id
+  source_security_group_id = module.vpn.sg_id
   type              = "ingress"
   from_port         = 22
   to_port           = 22
@@ -254,7 +263,7 @@ resource "aws_security_group_rule" "catalogue_vpn" {
 }
 
 resource "aws_security_group_rule" "catalogue_cart" {
-  source security_group_id = module.cart.sg_id
+  source_security_group_id = module.cart.sg_id
   type              = "ingress"
   from_port         = 8080
   to_port           = 8080
@@ -263,7 +272,7 @@ resource "aws_security_group_rule" "catalogue_cart" {
 }
 
 resource "aws_security_group_rule" "catalogue_web" {
-  source security_group_id = module.web.sg_id
+  source_security_group_id = module.web.sg_id
   type              = "ingress"
   from_port         = 8080
   to_port           = 8080
@@ -272,7 +281,7 @@ resource "aws_security_group_rule" "catalogue_web" {
 }
 
 resource "aws_security_group_rule" "user_vpn" {
-  source security_group_id = module.vpn.sg_id
+  source_security_group_id = module.vpn.sg_id
   type              = "ingress"
   from_port         = 22
   to_port           = 22
@@ -281,7 +290,7 @@ resource "aws_security_group_rule" "user_vpn" {
 }
 
 resource "aws_security_group_rule" "user_web" {
-  source security_group_id = module.web.sg_id
+  source_security_group_id = module.web.sg_id
   type              = "ingress"
   from_port         = 8080
   to_port           = 8080
@@ -290,7 +299,7 @@ resource "aws_security_group_rule" "user_web" {
 }
 
 resource "aws_security_group_rule" "user_payment" {
-  source security_group_id = module.payment.sg_id
+  source_security_group_id = module.payment.sg_id
   type              = "ingress"
   from_port         = 8080
   to_port           = 8080
@@ -299,7 +308,7 @@ resource "aws_security_group_rule" "user_payment" {
 }
 
 resource "aws_security_group_rule" "cart_vpn" {
-  source security_group_id = module.vpn.sg_id
+  source_security_group_id = module.vpn.sg_id
   type              = "ingress"
   from_port         = 22
   to_port           = 22
@@ -308,7 +317,7 @@ resource "aws_security_group_rule" "cart_vpn" {
 }
 
 resource "aws_security_group_rule" "cart_web" {
-  source security_group_id = module.web.sg_id
+  source_security_group_id = module.web.sg_id
   type              = "ingress"
   from_port         = 8080
   to_port           = 8080
@@ -317,7 +326,7 @@ resource "aws_security_group_rule" "cart_web" {
 }
 
 resource "aws_security_group_rule" "cart_shipping" {
-  source security_group_id = module.shipping.sg_id
+  source_security_group_id = module.shipping.sg_id
   type              = "ingress"
   from_port         = 8080
   to_port           = 8080
@@ -326,7 +335,7 @@ resource "aws_security_group_rule" "cart_shipping" {
 }
 
 resource "aws_security_group_rule" "cart_payment" {
-  source security_group_id = module.payment.sg_id
+  source_security_group_id = module.payment.sg_id
   type              = "ingress"
   from_port         = 8080
   to_port           = 8080
